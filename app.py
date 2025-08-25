@@ -35,7 +35,13 @@ st.markdown("Analyze user onboarding funnels and get AI-powered insights for imp
 
 if uploaded_file is not None:
     try:
+        # Read CSV first to detect column types
         df = pd.read_csv(uploaded_file)
+        
+        # Convert any ID-like columns to string to avoid PyArrow conversion warnings
+        id_columns = [col for col in df.columns if 'id' in col.lower() or col.lower() in ['id', 'user_id', 'userid']]
+        for col in id_columns:
+            df[col] = df[col].astype(str)
         
         if df is not None and not df.empty:
             st.success(f"✅ Data loaded successfully! {len(df)} records found.")
@@ -65,8 +71,30 @@ if uploaded_file is not None:
             # Let user select columns for funnel analysis
             st.header("🧩 Onboarding Funnel Analysis")
             st.markdown("Select columns for funnel analysis:")
-            step_col = st.selectbox("Step column", options=df.columns, index=0)
-            user_col = st.selectbox("User ID column", options=df.columns, index=1 if len(df.columns) > 1 else 0)
+            
+            # Filter out user_id from step column options and set smart defaults
+            step_options = [col for col in df.columns if col != 'user_id']
+            user_options = df.columns
+            
+            # Set smart default indices
+            step_default_idx = 0
+            user_default_idx = 0
+            
+            # Try to find better defaults
+            if 'step' in df.columns:
+                step_default_idx = step_options.index('step')
+            elif 'stage' in df.columns:
+                step_default_idx = step_options.index('stage')
+            elif 'phase' in df.columns:
+                step_default_idx = step_options.index('phase')
+                
+            if 'user_id' in df.columns:
+                user_default_idx = df.columns.get_loc('user_id')
+            elif 'id' in df.columns:
+                user_default_idx = df.columns.get_loc('id')
+            
+            step_col = st.selectbox("Step column", options=step_options, index=step_default_idx)
+            user_col = st.selectbox("User ID column", options=user_options, index=user_default_idx)
             chart_type = st.selectbox("Chart type", ["Funnel", "Bar", "Pie"])
 
             if step_col and user_col:
